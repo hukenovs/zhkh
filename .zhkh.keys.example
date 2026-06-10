@@ -1,0 +1,24 @@
+# Скопируй в ~/.zhkh.keys и подставь свои логины/пароли.
+# chmod 600 ~/.zhkh.keys
+
+moek:
+  login: "user@example.com"
+  password: "..."
+
+mosenergosbyt:
+  login: "user@example.com"
+  password: "..."
+
+mosvodokanal:
+  login: "user@example.com"
+  password: "..."
+
+etalonuk:
+  login: "+79991234567"
+  password: "..."
+
+# Опционально — для VLM-извлечения суммы из PDF/PNG квитанции.
+openrouter:
+  api_key: "..."
+  # Любая бесплатная VLM с https://openrouter.ai/models?max_price=0
+  model: "qwen/qwen2.5-vl-72b-instruct:free"

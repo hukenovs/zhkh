@@ -1,0 +1,15 @@
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+
+receipts/
+debug/
+.zhkh.keys
+
+.DS_Store
+.idea/
+.vscode/
+uv.lock
