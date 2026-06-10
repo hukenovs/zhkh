@@ -1,13 +1,17 @@
-#!/usr/bin/env python3
+#!/usr/bin/env -S uv run python
 """Дефолтный запуск: обходит все сайты, для которых есть креды в ~/.zhkh.keys,
 складывает квитанции в ./receipts/<YYYY-MM>/<site>/, скриншоты — в ./debug/.
 
-Запуск:
-    uv run run.py                  # все сайты, headless, info-логи
-    uv run run.py --debug          # подробные логи и больше скриншотов
-    uv run run.py --headed         # видимое окно браузера
-    uv run run.py --site moek      # один сайт; можно повторять --site
-    uv run run.py --site moek --debug --headed   # любой набор флагов
+Запуск (любой из вариантов):
+    ./run.py                       # благодаря shebang `uv run python`
+    uv run run.py
+    .venv/bin/python run.py
+    source .venv/bin/activate && python run.py
+
+Флаги:
+    --debug          подробные логи + DEBUG-скриншоты
+    --headed         видимое окно браузера
+    --site moek      один сайт; флаг можно повторить --site mosvodokanal …
 """
 
 from __future__ import annotations

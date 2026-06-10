@@ -203,13 +203,15 @@ class MosenergosbytParser(BaseParser):
         # Подвкладка «Квитанции» в подменю «История».
         self._click_tab(page, "Квитанции")
 
-        # Данные подгружаются async — ждём первую ссылку «ПЕЧАТЬ КВИТАНЦИИ».
+        # Данные подгружаются async. У МЭС панели месяцев лежат в
+        # [testid^='mesReceiptsMain-Panel-Header-'] (-date, -smTotal,
+        # -printReceipts). Ждём появления первой панели.
         try:
-            page.get_by_text(
-                re.compile(r"ПЕЧАТЬ\s+КВИТАНЦИИ", re.IGNORECASE)
-            ).first.wait_for(state="visible", timeout=15_000)
+            page.locator(
+                "[testid='mesReceiptsMain-Panel-Header-0-printReceipts']"
+            ).wait_for(state="visible", timeout=20_000)
         except PWTimeout:
-            self.log.warning("[mes] ЛС %s: «Квитанции» не дождались данных", ls)
+            self.log.warning("[mes] ЛС %s: панели Квитанций не загрузились", ls)
         self._snapshot(page, f"04_lc_{ls}")
 
         # Берём период + сумму прямо из шапки последнего месяца.
@@ -221,10 +223,10 @@ class MosenergosbytParser(BaseParser):
             total,
         )
 
-        # «ПЕЧАТЬ КВИТАНЦИИ» — ссылка справа в шапке раскрытого месяца.
-        print_link = page.get_by_text(
-            re.compile(r"ПЕЧАТЬ\s+КВИТАНЦИИ", re.IGNORECASE)
-        ).first
+        # «ПЕЧАТЬ КВИТАНЦИИ» в шапке самого верхнего месяца (Header-0).
+        print_link = page.locator(
+            "[testid='mesReceiptsMain-Panel-Header-0-printReceipts']"
+        )
         try:
             with page.expect_download(timeout=25_000) as dl_info:
                 print_link.click()
@@ -297,31 +299,24 @@ class MosenergosbytParser(BaseParser):
         page.wait_for_timeout(300)
 
     def _read_first_month(self, page: Page) -> tuple[str | None, float | None]:
-        """Период (название месяца) и сумма из шапки самого верхнего месяца.
-
-        Каждая строка месяца на странице «История → Квитанции» содержит:
-        «<Месяц> YYYY ... -X XXX,XX руб. ПЕЧАТЬ КВИТАНЦИИ». Минус — это
-        как МЭС показывает «к оплате», нам нужна абсолютная величина.
-        """
-        month_re = re.compile(
-            r"^(Январь|Февраль|Март|Апрель|Май|Июнь|Июль|Август|"
-            r"Сентябрь|Октябрь|Ноябрь|Декабрь)\s+\d{4}$"
-        )
-        try:
-            label = page.get_by_text(month_re).first
-            label.wait_for(state="visible", timeout=10_000)
-            period = label.inner_text(timeout=1000).strip()
-        except Exception:  # noqa: BLE001
-            return None, None
-        # Поднимаемся к ближайшему контейнеру, в котором лежит и сумма,
-        # и «ПЕЧАТЬ КВИТАНЦИИ».
+        """Период и сумма из самой верхней панели месяца (Header-0)."""
+        period: str | None = None
         amount: float | None = None
         try:
-            card = label.locator(
-                "xpath=ancestor::*[.//text()[contains(., 'ПЕЧАТЬ')]][1]"
-            ).first
-            text = card.inner_text(timeout=1500)
-            if m := re.search(r"([+\-−]?\s*[\d\s .,]+)\s*руб", text):
+            date_text = page.locator(
+                "[testid='mesReceiptsMain-Panel-Header-0-date']"
+            ).inner_text(timeout=2000).strip()
+            # В DOM это «апрель 2026» (lowercase) — нормализуем регистр.
+            if m := re.match(r"(\S+)\s+(\d{4})", date_text):
+                period = f"{m.group(1).capitalize()} {m.group(2)}"
+        except Exception:  # noqa: BLE001
+            pass
+        try:
+            total_text = page.locator(
+                "[testid='mesReceiptsMain-Panel-Header-0-smTotal']"
+            ).inner_text(timeout=2000)
+            # «-1 604,83 руб.» — знак отражает «к оплате», берём |x|.
+            if m := re.search(r"([+\-−]?\s*[\d\s .,]+)\s*руб", total_text):
                 amount = _parse_rub(m.group(1).replace("−", "-"))
                 if amount is not None:
                     amount = abs(amount)
