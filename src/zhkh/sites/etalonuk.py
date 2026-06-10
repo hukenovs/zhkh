@@ -246,6 +246,10 @@ class EtalonParser(BaseParser):
             lines = [s.strip() for s in text.splitlines() if s.strip()]
             title = lines[0] if lines else text
             address = lines[1] if len(lines) > 1 else ""
+            # Дроп псевдо-опции «+ Добавить адрес» — её на странице нет, она
+            # ведёт в форму добавления нового объекта, не в квитанции.
+            if re.search(r"добавить\s+адрес", title, re.IGNORECASE):
+                continue
             # value MUI хранит в data-value (id объекта в API).
             value = ""
             try:
@@ -439,6 +443,12 @@ class EtalonParser(BaseParser):
                     summary[key] = _parse_rub(raw)
         except Exception:  # noqa: BLE001
             pass
+        # В свежем UI «Итого» = «к оплате прямо сейчас» и часто равно 0 (всё
+        # уплачено наперёд). Если так, реальную задолженность держит «Долг».
+        if (summary.get("total") in (None, 0, 0.0)) and summary.get("overpayment") is not None:
+            debt = summary["overpayment"]
+            if debt and debt > 0:
+                summary["total"] = debt
         return summary
 
     # ---------- утилиты ----------
