@@ -18,18 +18,12 @@ OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 _REFERER = "https://github.com/hukenovs/zhkh"
 _TITLE = "zhkh"
 
-_SYSTEM_PROMPT = (
-    "Ты — помощник по разбору квитанций ЖКХ. На вход дают одну квитанцию "
-    "(PDF или изображение). Извлеки данные и верни СТРОГО JSON-объект без "
-    "пояснений и без markdown, со следующими ключами:\n"
-    '  "provider"  — поставщик/УК (строка или null),\n'
-    '  "period"    — расчётный период, формат "YYYY-MM" (строка или null),\n'
-    '  "total"     — итоговая сумма к оплате, число в рублях (или null),\n'
-    '  "items"     — массив объектов {"name": строка, "amount": число} '
-    "по строкам начислений (услуги),\n"
-    '  "note"      — короткое примечание (долг, пени, аванс) или null.\n'
-    "Суммы — числами, без пробелов и знака рубля. Если поля нет — null."
-)
+# Системный промпт лежит рядом в prompts.txt — правится без касания кода.
+_PROMPT_PATH = Path(__file__).with_name("prompts.txt")
+
+
+def load_prompt() -> str:
+    return _PROMPT_PATH.read_text(encoding="utf-8").strip()
 
 
 @dataclass
@@ -58,23 +52,20 @@ def _data_url(path: Path) -> tuple[str, str]:
     return mime, f"data:{mime};base64,{b64}"
 
 
-def _build_content(path: Path) -> tuple[list[dict], list[dict] | None]:
-    """Строит content-массив сообщения и (опц.) plugins для PDF."""
+def _build_content(path: Path) -> list[dict]:
+    """Строит content-массив сообщения с вложенной квитанцией.
+
+    PDF отдаём модели как есть (тип "file", без file-parser плагина — OpenRouter
+    передаёт файл прямо в VLM, которая сама его читает). Картинки — через image_url.
+    """
     mime, data_url = _data_url(path)
     text_part = {"type": "text", "text": "Разбери эту квитанцию ЖКХ."}
     if mime == "application/pdf" or path.suffix.lower() == ".pdf":
-        content = [
+        return [
             text_part,
-            {
-                "type": "file",
-                "file": {"filename": path.name, "file_data": data_url},
-            },
+            {"type": "file", "file": {"filename": path.name, "file_data": data_url}},
         ]
-        plugins = [{"id": "file-parser", "pdf": {"engine": "pdf-text"}}]
-        return content, plugins
-    # Картинка.
-    content = [text_part, {"type": "image_url", "image_url": {"url": data_url}}]
-    return content, None
+    return [text_part, {"type": "image_url", "image_url": {"url": data_url}}]
 
 
 def _extract_json(text: str) -> dict:
@@ -108,6 +99,7 @@ class OpenRouterClient:
     def __init__(self, cfg: OpenRouterCfg, *, timeout: float = 120.0) -> None:
         self.cfg = cfg
         self.timeout = timeout
+        self.prompt = load_prompt()
 
     def summarize_receipt(self, site: str, path: Path) -> ReceiptSummary:
         result = ReceiptSummary(site=site, path=path)
@@ -115,21 +107,15 @@ class OpenRouterClient:
             result.error = "файл не найден"
             return result
 
-        content, plugins = _build_content(path)
-        # pdf_engine из конфига перекрывает дефолтный pdf-text для PDF.
-        if plugins is not None:
-            plugins[0]["pdf"]["engine"] = self.cfg.pdf_engine
-
+        content = _build_content(path)
         payload: dict = {
             "model": self.cfg.model,
             "messages": [
-                {"role": "system", "content": _SYSTEM_PROMPT},
+                {"role": "system", "content": self.prompt},
                 {"role": "user", "content": content},
             ],
             "temperature": 0,
         }
-        if plugins is not None:
-            payload["plugins"] = plugins
 
         headers = {
             "Authorization": f"Bearer {self.cfg.api_key}",

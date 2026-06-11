@@ -24,3 +24,5 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/zhkh"]
+# prompts.txt — не-py ресурс, явно включаем в wheel.
+artifacts = ["src/zhkh/prompts.txt"]

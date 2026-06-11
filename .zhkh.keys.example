@@ -20,19 +20,17 @@ etalonuk:
 # Опционально — VLM-разбор квитанций (CLI: --summarize, бот: кнопка «Суммаризировать»).
 openrouter:
   api_key: "..."
-  # OCR-grade VLM. По умолчанию — qwen2.5-vl-72b:free: в бенчмарках по извлечению
-  # данных из документов обгоняет даже специализированный mistral-ocr.
-  model: "qwen/qwen2.5-vl-72b-instruct:free"
-  # Другие бесплатные VLM (:free) на выбор — см. https://openrouter.ai/models?max_price=0
-  #   qwen/qwen2.5-vl-32b-instruct:free        — полегче, тоже сильный OCR
-  #   mistralai/mistral-small-3.1-24b-instruct:free
-  #   meta-llama/llama-3.2-11b-vision-instruct:free
-  #   google/gemma-3-27b-it:free               — слабее на OCR
-  #   nvidia/nemotron-nano-... (если доступна) — топ OCRBench среди бесплатных
-  # Платные с лучшим OCR: qwen/qwen3-vl-32b-instruct, mistralai/mistral-ocr.
-  # Движок разбора PDF: pdf-text (бесплатно, для цифровых PDF — дефолт),
-  # mistral-ocr (платно, для сканов), native (отдать PDF самой модели).
-  pdf_engine: "pdf-text"
+  # OCR-grade VLM. По умолчанию — nemotron-nano-12b-v2-vl:free: специализированная
+  # VL-модель NVIDIA, лидер OCRBench v2 среди бесплатных на OpenRouter.
+  model: "nvidia/nemotron-nano-12b-v2-vl:free"
+  # Список бесплатных меняется! Актуальные :free с поддержкой картинок —
+  # https://openrouter.ai/models?max_price=0 (фильтр Input modalities: image).
+  # На момент написания доступны бесплатно:
+  #   google/gemma-4-31b-it:free               — общая мультимодалка, слабее на OCR
+  #   google/gemma-4-26b-a4b-it:free
+  # Платные, если нужна максимальная точность OCR:
+  #   qwen/qwen3.7-plus, qwen/qwen3-vl-32b-instruct, qwen/qwen2.5-vl-72b-instruct.
+  # PDF отдаётся модели как есть — она сама читает документ; промпт в src/zhkh/prompts.txt.
 
 # Опционально — для Telegram-бота (run_bot.py / zhkh-bot).
 # token: получить у @BotFather.
