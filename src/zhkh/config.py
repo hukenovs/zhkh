@@ -18,6 +18,10 @@ class SiteCreds:
 class OpenRouterCfg:
     api_key: str
     model: str = "qwen/qwen2.5-vl-72b-instruct:free"
+    # Движок разбора PDF в OpenRouter: "pdf-text" (бесплатно, извлечение текста
+    # из цифровых PDF — годится для квитанций ЖКХ), "mistral-ocr" (платно, для
+    # сканов), "native" (отдать PDF модели как есть, если она это умеет).
+    pdf_engine: str = "pdf-text"
 
 
 @dataclass
@@ -60,6 +64,7 @@ def load_config(path: Path | None = None) -> Config:
             openrouter = OpenRouterCfg(
                 api_key=value["api_key"],
                 model=value.get("model", OpenRouterCfg.model),
+                pdf_engine=value.get("pdf_engine", OpenRouterCfg.pdf_engine),
             )
             continue
         if key == "telegram":
