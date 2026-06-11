@@ -21,9 +21,16 @@ class OpenRouterCfg:
 
 
 @dataclass
+class TelegramCfg:
+    token: str
+    allowed_chat_ids: frozenset[int]
+
+
+@dataclass
 class Config:
     sites: dict[str, SiteCreds]
     openrouter: OpenRouterCfg | None = None
+    telegram: TelegramCfg | None = None
 
     def for_site(self, name: str) -> SiteCreds:
         if name not in self.sites:
@@ -45,6 +52,7 @@ def load_config(path: Path | None = None) -> Config:
 
     sites: dict[str, SiteCreds] = {}
     openrouter: OpenRouterCfg | None = None
+    telegram: TelegramCfg | None = None
     for key, value in raw.items():
         if not isinstance(value, dict):
             continue
@@ -54,7 +62,15 @@ def load_config(path: Path | None = None) -> Config:
                 model=value.get("model", OpenRouterCfg.model),
             )
             continue
+        if key == "telegram":
+            telegram = TelegramCfg(
+                token=value["token"],
+                allowed_chat_ids=frozenset(
+                    int(x) for x in value.get("allowed_chat_ids", [])
+                ),
+            )
+            continue
         if "login" in value and "password" in value:
             sites[key] = SiteCreds(login=value["login"], password=value["password"])
 
-    return Config(sites=sites, openrouter=openrouter)
+    return Config(sites=sites, openrouter=openrouter, telegram=telegram)

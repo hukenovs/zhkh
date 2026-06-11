@@ -71,6 +71,12 @@ etalonuk:
 openrouter:
   api_key: "..."
   model: "qwen/qwen2.5-vl-72b-instruct:free"
+
+# опционально — для Telegram-бота (см. «Telegram-бот»)
+telegram:
+  token: "123456789:AA..."        # у @BotFather
+  allowed_chat_ids:               # бот отвечает только этим chat_id
+    - 11111111
 ```
 
 Закрой права: `chmod 600 ~/.zhkh.keys`.
@@ -126,6 +132,25 @@ debug/                          (только при --debug)
 
 В конце прогона печатается таблица с разбивкой по сайтам / объектам / периодам / суммам и общий итог.
 
+## Telegram-бот
+
+Тот же сбор, но из чата: бот по кнопке заходит во все настроенные кабинеты, присылает текстовое саммари по суммам к оплате и сами файлы квитанций (они также сохраняются локально в `receipts/`).
+
+Настройка:
+
+1. Создать бота у [@BotFather](https://t.me/BotFather), получить токен.
+2. Узнать свой `chat_id` (например, у [@userinfobot](https://t.me/userinfobot)).
+3. Добавить секцию `telegram` в `~/.zhkh.keys` (см. выше). Бот отвечает **только** на `chat_id` из `allowed_chat_ids` — остальных молча игнорирует (бот ходит в ЛК с реальными платежами).
+
+Запуск:
+
+```bash
+uv run run_bot.py          # или: zhkh-bot   (после uv sync)
+uv run run_bot.py --debug  # подробные логи
+```
+
+В чате: `/start` — приветствие с кнопкой, `/help` — справка, кнопка **«Запросить квитанции»** — запускает сбор (несколько минут; одновременно выполняется только один запрос).
+
 ## Архитектура
 
 ```
@@ -134,14 +159,21 @@ src/zhkh/
   log.py           rich-логи (Console + RichHandler)
   storage.py       пути receipts/<YYYY-MM>/<site>/ и debug/<run-stamp>/<site>/
   base.py          BaseParser, Receipt, ParseResult
+  runner.py        run_parsers() — общий прогон парсеров (CLI и бот)
+  summary.py       iter_summary_rows / grand_total — итог для таблицы и чата
   cli.py           click-CLI, итоговая таблица
+  tgbot/
+    __init__.py    реэкспорт run_bot / main_bot
+    bot.py         Telegram-бот (python-telegram-bot): хендлеры, Application
+    format.py      build_text_summary — HTML-текст саммари для чата
   sites/
     __init__.py    PARSERS = { name: Cls }  — регистрация
     moek.py
     mosvodokanal.py
     mosenergosbyt.py
     etalonuk.py
-run.py             точка входа (uv run / python / shebang)
+run.py             точка входа CLI (uv run / python / shebang)
+run_bot.py         точка входа Telegram-бота
 ```
 
 Каждый парсер реализует `BaseParser.run() -> ParseResult`. ParseResult содержит список `Receipt`. У одного сайта может быть несколько Receipt-ов (например, в Мосэнергосбыте — один на каждый ЛС).
@@ -165,6 +197,5 @@ run.py             точка входа (uv run / python / shebang)
 
 ## Дальше
 
-Запланированы (но не сделаны) две вещи из исходной задачи:
-- Telegram-уведомления о ходе и результатах + пересылка PDF в чат-бот.
 - Резервный путь извлечения суммы из самого PDF через VLM-модель из OpenRouter — на случай, когда сайт не отдаёт сумму отдельно. Конфиг секции `openrouter` в `~/.zhkh.keys` уже есть.
+- Запуск бота по расписанию (раз в месяц) с автоматической рассылкой саммари без нажатия кнопки.
